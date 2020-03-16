@@ -3,48 +3,58 @@
 % Written by J.C. Travers, M.H Frosz and J.M. Dudley (2009)
 % Please cite this chapter in any publication using this code.
 % Updates to this code are available at www.scgbook.info
+% Minor bug fix: 16/03/2020
+
+% numerical grid
 n = 2^13;                   % number of grid points
-twidth = 12.5;              % width of time window [ps]
-c = 299792458*1e9/1e12;     % speed of light [nm/ps]
-wavelength = 835;           % reference wavelength [nm]
-w0 = (2.0*pi*c)/wavelength; % reference frequency [2*pi*THz]
-T = linspace(-twidth/2, twidth/2, n); % time grid
+twidth = 12.5e-12;          % width of time window [s]
+c = 299792458;              % speed of light [m/s]
+wavelength = 835e-9;        % reference wavelength [m]
+w0 = (2*pi*c)/wavelength;   % reference frequency [Hz]
+dt = twidth/n;
+T = (-n/2:n/2 - 1).*dt; % time grid
+
 % === input pulse
 power = 10000;              % peak power of input [W]
-t0 = 0.0284;                % duration of input [ps]
+t0 = 28.4e-15;              % duration of input [s]
 A = sqrt(power)*sech(T/t0); % input field [W^(1/2)]
+
 % === fibre parameters
 flength = 0.15;             % fibre length [m]
-% betas = [beta2, beta3, ...] in units [ps^2/m, ps^3/m ...]
-betas = [-11.830e-3, 8.1038e-5, -9.5205e-8, 2.0737e-10, ...
-         -5.3943e-13, 1.3486e-15, -2.5495e-18, 3.0524e-21, ...
-         -1.7140e-24];
+% betas = [beta2, beta3, ...] in units [s^2/m, s^3/m ...]
+betas = [-1.1830e-026, 8.1038e-041, -9.5205e-056,  2.0737e-070, ...
+         -5.3943e-085,  1.3486e-099, -2.5495e-114,  3.0524e-129, ...
+         -1.7140e-144];
 gamma = 0.11;               % nonlinear coefficient [1/W/m]
 loss = 0;                   % loss [dB/m]
+
 % === Raman response
 fr = 0.18;                  % fractional Raman contribution
-tau1 = 0.0122; tau2 = 0.032;
+tau1 = 0.0122e-12; tau2 = 0.032e-12;
 RT = (tau1^2+tau2^2)/tau1/tau2^2*exp(-T/tau2).*sin(T/tau1);
-RT(T<0) = 0;          % heaviside step function
-%RT = RT/trapz(T,RT);  % normalise RT to unit integral
+RT(T<0) = 0;                % heaviside step function
+
 % === simulation parameters
 nsaves = 200;     % number of length steps to save field at
+
 % propagate field
 [Z, AT, AW, W] = gnlse(T, A, w0, gamma, betas, loss, ...
                        fr, RT, flength, nsaves);
+                   
 % === plot output
 figure();
-lIW = 10*log10(abs(AW).^2); % log scale spectral intensity
+
+WL = 2*pi*c./W; iis = (WL>450e-9 & WL<1350e-9); % wavelength grid
+lIW = 10*log10(abs(AW).^2 .* 2*pi*c./WL'.^2); % log scale spectral intensity
 mlIW = max(max(lIW));       % max value, for scaling plot
-WL = 2*pi*c./W; iis = (WL>400 & WL<1350); % wavelength grid
 subplot(1,2,1);             
-pcolor(WL(iis), Z, lIW(:,iis)); % plot as pseudocolor map
-caxis([mlIW-40.0, mlIW]);  xlim([400,1350]); shading interp; 
+pcolor(WL(iis).*1e9, Z, lIW(:,iis)); % plot as pseudocolor map
+caxis([mlIW-40.0, mlIW]);  xlim([450,1350]); shading interp; 
 xlabel('Wavelength / nm'); ylabel('Distance / m');
 
 lIT = 10*log10(abs(AT).^2); % log scale temporal intensity
 mlIT = max(max(lIT));       % max value, for scaling plot
 subplot(1,2,2);
-pcolor(T, Z, lIT);          % plot as pseudocolor map
+pcolor(T.*1e12, Z, lIT);    % plot as pseudocolor map
 caxis([mlIT-40.0, mlIT]);  xlim([-0.5,5]); shading interp;
 xlabel('Delay / ps'); ylabel('Distance / m');
